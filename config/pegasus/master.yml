@@ -1,0 +1,10 @@
+purchase_type: on_demand
+subnet_id: ""subnet_id""
+num_instances: 4
+key_name: ""key_pair_name""
+security_group_ids: ""security_group_id""
+instance_type: ""instance_type""
+tag_name: ""tag_name""
+vol_size: ""size""
+role: master
+use_eips: true

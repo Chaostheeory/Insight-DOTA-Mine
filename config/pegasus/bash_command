@@ -1,0 +1,22 @@
+. ~/.bash_profile
+
+peg config
+
+peg up master.yml
+
+peg up workers.yml
+
+peg install spark-cluster ssh
+peg install spark-cluster aws
+peg install spark-cluster environment
+
+peg install spark-cluster hadoop
+peg service spark-cluster hadoop start
+peg install spark-cluster spark
+peg service spark-cluster spark start
+
+peg install spark-cluster zookeeper
+peg service spark-cluster zookeeper start
+
+peg install spark-cluster kafka
+peg service spark-cluster kafka start

@@ -3,13 +3,12 @@ from pyspark import SparkConf, SparkContext
 import csv
 import os
 import numpy as np
-
-#from pyspark.sql import SparkSession
-#from pyspark.sql import Row
-#import collections
+import psycopg2
+from boto.s3.connection import S3Connection
+from psycopg2 import extras
 
 os.environ['PYTHONPATH']='python3'
-conf = SparkConf().setMaster("local").setAppName("cal_position")
+conf = SparkConf().setMaster("spark://ec2-3-90-122-232.compute-1.amazonaws.com:7077").setAppName("groupplayerhistory")
 sc = SparkContext(conf = conf)
 
 IDs  =[1,10,19,28,37]
@@ -19,7 +18,6 @@ IDs  =[1,10,19,28,37]
 #Asis =[2,9,16,23,30]
 #Gs   =[2,9,16,23,30]
 #Lvls =[2,9,16,23,30]
-
 
 def what_position(line):
     fields=line.split(',')
@@ -72,35 +70,50 @@ def turn_tuple(x):
     first_half.append(x[1])
     return (first_half)
 
-lines = sc.textFile("position_origin.txt")
-parsedLines = lines.map(what_position)
+def insert_db(data):
+    psql_credeintal = {
+        'database': 'wode',
+        'user': 'wode',
+        'password': '***',
+        'host': '54.242.73.153',
+        'port': '5432'
 
-lines=parsedLines.map(lambda x:(x[0],x[1],x[2]))
-line2=parsedLines.map(lambda x:(x[3],x[4],x[5]))
-line3=parsedLines.map(lambda x:(x[6],x[7],x[8]))
-line4=parsedLines.map(lambda x:(x[9],x[10],x[11]))
-line5=parsedLines.map(lambda x:(x[12],x[13],x[14]))
-lines=lines.union(line2).union(line3).union(line4).union(line5)
+    psql_db_conn = psycopg2.connect(**psql_credeintal)
 
+    global psql_db_conn
+    psql_db_cur = psql_db_conn.cursor()
+    psql_db_cur.execute('PREPARE inserts AS INSERT INTO "positions" (user_id, position, winrate) \
+                                            VALUES ($1, $2, $3);')
+    extras.execute_batch(psql_db_cur, "EXECUTE inserts (%s, %s, %s)", [data])
+    psql_db_cur.execute("DEALLOCATE inserts")
+    psql_db_conn.commit()
 
+def __name__=="__main__":
+    #connect AWS
+    aws_access_key = os.getenv('AWS_ACCESS_KEY_ID', 'default')
+    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY', 'default')
+    conn = S3Connection(aws_access_key,aws_secret_access_key)
+    bucket=conn.get_bucket("chaoinsight")
+    lines = sc.textFile("s3a://chaoinsight/position_origin.txt")
 
-for_winandlose=lines.map(lambda x:(tuple([x[0],x[1]]),1))
-for_winandlose=for_winandlose.reduceByKey(lambda x,y:x+y)
+    parsedLines = lines.map(what_position)
+    lines=parsedLines.map(lambda x:(x[0],x[1],x[2]))
+    line2=parsedLines.map(lambda x:(x[3],x[4],x[5]))
+    line3=parsedLines.map(lambda x:(x[6],x[7],x[8]))
+    line4=parsedLines.map(lambda x:(x[9],x[10],x[11]))
+    line5=parsedLines.map(lambda x:(x[12],x[13],x[14]))
+    lines=lines.union(line2).union(line3).union(line4).union(line5)
 
-#for_winonly=lines.map(lambda x:x[2])
-for_winonly=lines.filter(lambda x:x[2] == ' 1')
-for_winonly=for_winonly.map(lambda x:(tuple([x[0],x[1]]),1))
-for_winonly=for_winonly.reduceByKey(lambda x,y:x+y)
+    for_winandlose=lines.map(lambda x:(tuple([x[0],x[1]]),1))
+    for_winandlose=for_winandlose.reduceByKey(lambda x,y:x+y)
 
-lines=for_winandlose.union(for_winonly)
-lines=lines.reduceByKey(cal_winrate)
-lines=lines.map(turn_tuple)
+    for_winonly=lines.filter(lambda x:x[2] == ' 1')
+    for_winonly=for_winonly.map(lambda x:(tuple([x[0],x[1]]),1))
+    for_winonly=for_winonly.reduceByKey(lambda x,y:x+y)
 
-lines=lines.map(toCSVLine)
-results = lines.collect()
-#results = lines.collect()
-print(results[0])
+    lines=for_winandlose.union(for_winonly)
+    lines=lines.reduceByKey(cal_winrate)
+    lines=lines.map(turn_tuple)
 
-with open('theposition.txt', 'w') as f:
-    for item in results:
-        f.write("%s\n" % item)
+    lines_csv=lines.map(toCSVLine)
+    lines.foreach(insert_db)

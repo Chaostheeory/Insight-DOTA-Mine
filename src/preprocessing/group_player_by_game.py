@@ -3,14 +3,11 @@ import json
 import os
 import ast
 import csv
-#import boto3
-#from boto.s3.connection import S3Connection
+from boto.s3.connection import S3Connection
+from psycopg2 import extras
 
 os.environ['PYTHONPATH']='python3'
-conf = SparkConf().setMaster("local").setAppName("groupplayerhistory")
-#SparkContext.stop()
-
-#conf = SparkConf().setMaster("spark://ip-10-0-0-14:7077").setAppName("groupplayerhistory")
+conf = SparkConf().setMaster("spark://ec2-3-90-122-232.compute-1.amazonaws.com:7077").setAppName("groupplayerhistory")
 sc = SparkContext(conf = conf)
 
 def readjson(jfile):
@@ -96,12 +93,3 @@ firstparsed = after_by_len.map(filterparse)
 filtered=firstparsed.filter(lambda x: x[4]=="10")
 finalgroup=filtered.map(parseLine)
 results = finalgroup.collect();
-
-with open("newcsv","w") as newfile:
-    csv_writer=csv.writer(newfile, delimiter=";")
-    for line in results:
-        csv_writer.writerow(line)
-
-for result in results:
-#
-    print (result)

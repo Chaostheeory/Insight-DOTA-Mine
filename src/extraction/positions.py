@@ -11,24 +11,30 @@ os.environ['PYTHONPATH']='python3'
 conf = SparkConf().setMaster("spark://ec2-3-90-122-232.compute-1.amazonaws.com:7077").setAppName("groupplayerhistory")
 sc = SparkContext(conf = conf)
 
-IDs  =[1,10,19,28,37]
-#heros=[2,9,16,23,30]
-#Ks   =[2,9,16,23,30]
-#Ds   =[2,9,16,23,30]
-#Asis =[2,9,16,23,30]
-#Gs   =[2,9,16,23,30]
-#Lvls =[2,9,16,23,30]
 
+#account_id = [4,13,22,31,40]
+#Kills   = [5,14,23,32,41]
+#Deaths   = [6,15,24,33,42]
+#assistsis = [7,16,25,34,43]
+#gold_per_min = [8,17,26,35,44]
+#xp_per_min = [9,18,27,36,45]
+
+#ouput aggregated positions
 def what_position(line):
     fields=line.split(',')
     #get if win
     ifwin=fields[8]
     #fields=np.array(fields)
-    P_1=fields[3]*3-fields[4]*5+fields[5]+fields[6]*3+fields[7]*5
-    P_2=fields[12]*3-fields[13]*5+fields[14]+fields[15]*3+fields[16]*5
-    P_3=fields[21]*3-fields[22]*5+fields[23]+fields[24]*3+fields[25]*5
-    P_4=fields[30]*3-fields[31]*5+fields[32]+fields[33]*3+fields[34]*5
-    P_5=fields[39]*3-fields[40]*5+fields[41]+fields[42]*3+fields[43]*5
+    score=[]
+    s=5
+    for i in range(5):
+        each_score = fields[5]*3+fields[6]*5+fields[7]+fields[8]*3+fields[9]*5
+        s+=9
+    P_1=score=[0]
+    P_2=score=[1]
+    P_3=score=[2]
+    P_4=score=[3]
+    P_5=score=[4]
 
     sort_rank={"P_1":P_1,"P_2":P_2,"P_3":P_3,"P_4":P_4,"P_5":P_5}
     sort_list=sorted(sort_rank.items(),key= lambda x:x[1])
@@ -48,7 +54,6 @@ def what_position(line):
     out5=sort_list.index(("P_5",P_5))+1
     out5=[fields[IDs[4]],out5,ifwin]
 
-    #return (out1,out2,out3,out4,out5)
     return (out1+out2+out3+out4+out5)
 
 def toCSVLine(data):
@@ -59,17 +64,12 @@ def count_number(sample):
     sample=toCSVLine(sample)
     return(sample,1)
 
-def cal_winrate(x,y):
-    if x<=y:
-        return (100*x/y)
-    else:
-        return (100*y/x)
-
 def turn_tuple(x):
     first_half=list(x[0])
     first_half.append(x[1])
     return (first_half)
 
+#insert to database
 def insert_db(data):
     psql_credeintal = {
         'database': 'wode',
